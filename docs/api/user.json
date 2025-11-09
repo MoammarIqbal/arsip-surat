@@ -1,0 +1,338 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dokumentasi API - User & Auth",
+    "version": "1.0.0",
+    "description": "Dokumentasi endpoint terkait autentikasi dan manajemen user. Autentikasi menggunakan Bearer Token (Laravel Sanctum)."
+  },
+  "servers": [
+    { "url": "/api", "description": "Base path API (laravel route prefix)" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Login, Profil, dan Logout" },
+    { "name": "Users (Admin)", "description": "Manajemen user (khusus admin)" }
+  ],
+  "paths": {
+    "/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login",
+        "description": "Menghasilkan Bearer Token untuk digunakan pada endpoint lain. **Public**.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" },
+              "examples": {
+                "default": {
+                  "value": {
+                    "email": "admin@example.com",
+                    "password": "secret123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" },
+                "examples": {
+                  "success": {
+                    "value": {
+                      "message": "Berhasil Login",
+                      "token": "1|m4sK3d_sAnCtUm_T0k3n",
+                      "user": {
+                        "id": 1,
+                        "name": "Admin",
+                        "email": "admin@example.com",
+                        "role": "admin",
+                        "created_at": "2025-01-01T10:00:00Z",
+                        "updated_at": "2025-01-01T10:00:00Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kredensial salah",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "examples": { "unauthorized": { "value": { "message": "email atau pasword salah" } } }
+              }
+            }
+          },
+          "422": {
+            "description": "Validasi gagal (format input salah)",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationErrorResponse" } } }
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Auth"],
+        "summary": "Profil pengguna saat ini",
+        "description": "Mengembalikan data user yang terkait dengan Bearer Token.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "401": {
+            "description": "Tidak terautentikasi",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        }
+      }
+    },
+    "/logout": {
+      "post": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Auth"],
+        "summary": "Logout",
+        "description": "Menghapus token akses yang sedang digunakan.",
+        "responses": {
+          "200": {
+            "description": "Berhasil logout",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MessageResponse" },
+                "examples": { "default": { "value": { "message": "Logged out" } } }
+              }
+            }
+          },
+          "401": { "description": "Tidak terautentikasi" }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Users (Admin)"],
+        "summary": "Daftar user (paginated)",
+        "description": "Menampilkan daftar user (hanya admin). Dapat difilter dengan query `search`, `role`, dan `per_page`.",
+        "parameters": [
+          { "in": "query", "name": "search", "schema": { "type": "string" }, "description": "Cari nama/email (opsional)" },
+          { "in": "query", "name": "role", "schema": { "type": "string", "enum": ["admin", "user"] }, "description": "Filter role (opsional)" },
+          { "in": "query", "name": "per_page", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 15 }, "description": "Item per halaman" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": { },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedUsers" }
+              }
+            }
+          },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan (bukan admin)" }
+        }
+      },
+      "post": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Users (Admin)"],
+        "summary": "Buat user baru",
+        "description": "Hanya admin. Email harus unik.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateUserRequest" },
+              "examples": {
+                "default": {
+                  "value": {
+                    "name": "User Baru",
+                    "email": "user@example.com",
+                    "password": "secret123",
+                    "role": "user"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Dibuat", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan (bukan admin)" },
+          "422": { "description": "Validasi gagal", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationErrorResponse" } } } }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Users (Admin)"],
+        "summary": "Detail user",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdParam" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan (bukan admin)" },
+          "404": { "description": "Tidak ditemukan" }
+        }
+      },
+      "put": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Users (Admin)"],
+        "summary": "Update user",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateUserRequest" } }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan (bukan admin)" },
+          "422": { "description": "Validasi gagal" },
+          "404": { "description": "Tidak ditemukan" }
+        }
+      },
+      "delete": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Users (Admin)"],
+        "summary": "Hapus user",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdParam" }
+        ],
+        "responses": {
+          "200": { "description": "Berhasil dihapus", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan (bukan admin) / tidak boleh hapus diri sendiri / admin terakhir" },
+          "404": { "description": "Tidak ditemukan" },
+          "422": { "description": "Gagal karena aturan proteksi" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "Token" }
+    },
+    "parameters": {
+      "IdParam": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": { "type": "integer", "minimum": 1 },
+        "description": "ID numeric"
+      }
+    },
+    "schemas": {
+      "MessageResponse": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } },
+        "required": ["message"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } }
+      },
+      "ValidationErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "The given data was invalid." },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "format": "password" }
+        },
+        "required": ["email", "password"]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string", "example": "Berhasil Login" },
+          "token": { "type": "string", "description": "Sanctum plaintext token" },
+          "user": { "$ref": "#/components/schemas/User" }
+        },
+        "required": ["token", "user"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["admin", "user"] },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true },
+          "updated_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "maxLength": 100 },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 6 },
+          "role": { "type": "string", "enum": ["admin", "user"] }
+        },
+        "required": ["name", "email", "password", "role"]
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "maxLength": 100 },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 6, "nullable": true },
+          "role": { "type": "string", "enum": ["admin", "user"] }
+        }
+      },
+      "PaginatedUsers": {
+        "type": "object",
+        "properties": {
+          "current_page": { "type": "integer" },
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/User" } },
+          "first_page_url": { "type": "string" },
+          "from": { "type": "integer", "nullable": true },
+          "last_page": { "type": "integer" },
+          "last_page_url": { "type": "string" },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string", "nullable": true },
+                "label": { "type": "string" },
+                "active": { "type": "boolean" }
+              }
+            }
+          },
+          "next_page_url": { "type": "string", "nullable": true },
+          "path": { "type": "string" },
+          "per_page": { "type": "integer" },
+          "prev_page_url": { "type": "string", "nullable": true },
+          "to": { "type": "integer", "nullable": true },
+          "total": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

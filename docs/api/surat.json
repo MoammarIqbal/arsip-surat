@@ -1,0 +1,292 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Dokumentasi API - Surat",
+    "version": "1.0.0",
+    "description": "Dokumentasi endpoint pengelolaan Surat. Autentikasi menggunakan Bearer Token (Laravel Sanctum)."
+  },
+  "servers": [
+    { "url": "/api", "description": "Base path API (laravel route prefix)" }
+  ],
+  "tags": [
+    { "name": "Surat", "description": "Endpoint untuk daftar, detail, preview nomor, tambah, unduh, dan (admin) ubah/hapus" }
+  ],
+  "paths": {
+    "/surat/next-number": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Surat"],
+        "summary": "Preview nomor & sequence berikutnya (gapless, per bulan)",
+        "description": "Hanya **preview**; tidak menyimpan. Menentukan nomor urut terkecil yang belum terpakai pada bulan & tahun dari `tanggal_surat`.",
+        "parameters": [
+          { "in": "query", "name": "kode_klasifikasi", "required": true, "schema": { "type": "string" }, "description": "Contoh: UMUM, KEU, dll" },
+          { "in": "query", "name": "tanggal_surat", "required": true, "schema": { "type": "string", "format": "date" }, "description": "Format YYYY-MM-DD" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NextNumberResponse" },
+                "examples": {
+                  "default": { "value": { "nomor_surat": "004/UMUM/XI/2025", "sequence": 4 } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Tidak terautentikasi" },
+          "422": { "description": "Validasi gagal" }
+        }
+      }
+    },
+    "/surat": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Surat"],
+        "summary": "Daftar surat (paginated)",
+        "parameters": [
+          { "in": "query", "name": "search", "schema": { "type": "string" }, "description": "Cari di nomor_surat/perihal/tujuan/kode_klasifikasi" },
+          { "in": "query", "name": "per_page", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 15 }, "description": "Item per halaman" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedLetters" } } } },
+          "401": { "description": "Tidak terautentikasi" }
+        }
+      },
+      "post": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Surat"],
+        "summary": "Tambah surat",
+        "description": "Jika `nomor_surat` tidak diisi, server akan **generate gapless** berdasarkan `kode_klasifikasi` dan `tanggal_surat`. Jika mengunggah file, field `tautan_dokumen` akan diabaikan.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/StoreLetterMultipart" }
+            },
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StoreLetterJson" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Dibuat", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Letter" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "422": { "description": "Validasi gagal / nomor_surat duplikat" }
+        }
+      }
+    },
+    "/surat/{id}": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Surat"],
+        "summary": "Detail surat",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdParam" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Letter" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "404": { "description": "Tidak ditemukan" }
+        }
+      },
+      "put": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Surat"],
+        "summary": "Update surat (admin)",
+        "description": "Hanya admin. Jika `nomor_surat` kosong dan bulan/tahun berubah, server akan **re-generate** nomor gapless untuk bulan baru.",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": { "schema": { "$ref": "#/components/schemas/UpdateLetterMultipart" } },
+            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateLetterJson" } }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Letter" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan (bukan admin)" },
+          "404": { "description": "Tidak ditemukan" },
+          "422": { "description": "Validasi gagal / sequence tabrakan" }
+        }
+      },
+      "delete": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Surat"],
+        "summary": "Hapus surat (admin)",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdParam" }
+        ],
+        "responses": {
+          "200": { "description": "Berhasil dihapus", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageResponse" } } } },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan (bukan admin)" },
+          "404": { "description": "Tidak ditemukan" }
+        }
+      }
+    },
+    "/surat/{id}/download": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "tags": ["Surat"],
+        "summary": "Unduh file surat",
+        "description": "Mengunduh file yang diunggah. Nama file akan mengikuti **nomor_surat** (disanitasi) + ekstensi asli.",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "File biner",
+            "content": {
+              "application/octet-stream": { "schema": { "type": "string", "format": "binary" } },
+              "application/pdf": { "schema": { "type": "string", "format": "binary" } }
+            }
+          },
+          "401": { "description": "Tidak terautentikasi" },
+          "403": { "description": "Tidak diizinkan" },
+          "404": { "description": "Tidak ditemukan / surat tidak punya file" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "Token" }
+    },
+    "parameters": {
+      "IdParam": {
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": { "type": "integer", "minimum": 1 },
+        "description": "ID numeric surat"
+      }
+    },
+    "schemas": {
+      "MessageResponse": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } },
+        "required": ["message"]
+      },
+      "Letter": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "nomor_surat": { "type": "string", "example": "001/UMUM/XI/2025" },
+          "sequence": { "type": "integer", "description": "Nomor urut (gapless per bulan)" },
+          "tujuan": { "type": "string" },
+          "kode_klasifikasi": { "type": "string", "example": "UMUM" },
+          "perihal": { "type": "string" },
+          "tanggal_surat": { "type": "string", "format": "date" },
+          "tautan_dokumen": { "type": "string", "format": "uri", "nullable": true },
+          "file_path": { "type": "string", "nullable": true, "description": "Path penyimpanan di storage (public)" },
+          "user_id": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true },
+          "updated_at": { "type": "string", "format": "date-time", "nullable": true },
+          "user": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" }
+            }
+          }
+        }
+      },
+      "StoreLetterMultipart": {
+        "type": "object",
+        "properties": {
+          "nomor_surat": { "type": "string", "nullable": true, "description": "Jika kosong → server generate" },
+          "tujuan": { "type": "string" },
+          "kode_klasifikasi": { "type": "string", "example": "UMUM" },
+          "perihal": { "type": "string" },
+          "tanggal_surat": { "type": "string", "format": "date" },
+          "tautan_dokumen": { "type": "string", "format": "uri", "nullable": true },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Jika dikirim, `tautan_dokumen` diabaikan. Maks 10MB. pdf/doc/docx/txt/xls/xlsx"
+          }
+        },
+        "required": ["tujuan", "kode_klasifikasi", "perihal", "tanggal_surat"]
+      },
+      "StoreLetterJson": {
+        "type": "object",
+        "properties": {
+          "nomor_surat": { "type": "string", "nullable": true },
+          "tujuan": { "type": "string" },
+          "kode_klasifikasi": { "type": "string", "example": "UMUM" },
+          "perihal": { "type": "string" },
+          "tanggal_surat": { "type": "string", "format": "date" },
+          "tautan_dokumen": { "type": "string", "format": "uri", "nullable": true }
+        },
+        "required": ["tujuan", "kode_klasifikasi", "perihal", "tanggal_surat"]
+      },
+      "UpdateLetterMultipart": {
+        "type": "object",
+        "properties": {
+          "nomor_surat": { "type": "string", "nullable": true, "description": "Jika diisi → pakai manual (cek tabrakan sequence)" },
+          "tujuan": { "type": "string" },
+          "kode_klasifikasi": { "type": "string" },
+          "perihal": { "type": "string" },
+          "tanggal_surat": { "type": "string", "format": "date" },
+          "tautan_dokumen": { "type": "string", "format": "uri", "nullable": true },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Mengunggah file baru akan **menimpa** file lama (jika ada) dan mengosongkan tautan."
+          }
+        }
+      },
+      "UpdateLetterJson": {
+        "type": "object",
+        "properties": {
+          "nomor_surat": { "type": "string", "nullable": true },
+          "tujuan": { "type": "string" },
+          "kode_klasifikasi": { "type": "string" },
+          "perihal": { "type": "string" },
+          "tanggal_surat": { "type": "string", "format": "date" },
+          "tautan_dokumen": { "type": "string", "format": "uri", "nullable": true }
+        }
+      },
+      "NextNumberResponse": {
+        "type": "object",
+        "properties": {
+          "nomor_surat": { "type": "string", "example": "001/UMUM/XII/2025" },
+          "sequence": { "type": "integer", "example": 1 }
+        }
+      },
+      "PaginatedLetters": {
+        "type": "object",
+        "properties": {
+          "current_page": { "type": "integer" },
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Letter" } },
+          "first_page_url": { "type": "string" },
+          "from": { "type": "integer", "nullable": true },
+          "last_page": { "type": "integer" },
+          "last_page_url": { "type": "string" },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string", "nullable": true },
+                "label": { "type": "string" },
+                "active": { "type": "boolean" }
+              }
+            }
+          },
+          "next_page_url": { "type": "string", "nullable": true },
+          "path": { "type": "string" },
+          "per_page": { "type": "integer" },
+          "prev_page_url": { "type": "string", "nullable": true },
+          "to": { "type": "integer", "nullable": true },
+          "total": { "type": "integer" }
+        }
+      }
+    }
+  }
+}
