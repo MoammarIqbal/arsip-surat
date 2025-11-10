@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreLetterRequest;
-use App\Http\Requests\UpdateLetterRequest;
 use App\Models\Letter;
 use App\Services\NumberingService;
 use Illuminate\Http\Request;
@@ -21,8 +19,7 @@ class LetterController extends Controller
     // GET /api/surat
     public function index(Request $request)
     {
-        $q = Letter::query()->with('user:id,name')
-            ->latest('id');
+        $q = Letter::query()->with('user:id,name')->latest('id');
 
         if ($s = trim($request->query('search', ''))) {
             $q->where(function ($w) use ($s) {
@@ -50,23 +47,24 @@ class LetterController extends Controller
         $user = $req->user();
 
         $data = $req->validate([
-            'nomor_surat' => ['nullable', 'string', 'max:100', 'unique:letters,nomor_surat'],
-            'tujuan' => ['required', 'string', 'max:255'],
+            'nomor_surat'      => ['nullable', 'string', 'max:100', 'unique:letters,nomor_surat'],
+            'tujuan'           => ['required', 'string', 'max:255'],
             'kode_klasifikasi' => ['required', 'string', 'max:50'],
-            'perihal' => ['required', 'string', 'max:255'],
-            'tanggal_surat' => ['required', 'date'],
-            'tautan_dokumen' => ['nullable', 'url'],
-            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx,txt,xls,xlsx', 'max:10240'],
+            'perihal'          => ['required', 'string', 'max:255'],
+            'tanggal_surat'    => ['required', 'date'],
+            'tautan_dokumen'   => ['nullable', 'url'],
+            // ⬇️ khusus: hanya PDF/JPG/JPEG/PNG (≤10MB)
+            'file'             => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
 
         return DB::transaction(function () use ($data, $user, $req) {
             $tanggal = new \DateTimeImmutable($data['tanggal_surat']);
 
-            // Generate nomor/sequence jika kosong
+            // Generate nomor + sequence
             if (empty($data['nomor_surat'])) {
                 $g = app(NumberingService::class)->generate($data['kode_klasifikasi'], $tanggal);
                 $nomor = $g['nomor'];
-                $seq = $g['sequence'];
+                $seq   = $g['sequence'];
             } else {
                 $seqManual = NumberingService::sequenceFromManual($data['nomor_surat']);
                 if (!$seqManual || $seqManual < 1) {
@@ -79,68 +77,64 @@ class LetterController extends Controller
                     ->whereMonth('tanggal_surat', $month)
                     ->where('sequence', $seqManual)
                     ->exists();
-                if ($exists)
-                    abort(422, "Sequence {$seqManual} sudah terpakai di bulan tersebut.");
+                if ($exists) abort(422, "Sequence {$seqManual} sudah terpakai di bulan tersebut.");
 
                 $nomor = $data['nomor_surat'];
-                $seq = $seqManual;
+                $seq   = $seqManual;
             }
 
             $filePath = null;
-            $link = $data['tautan_dokumen'] ?? null;
+            $link     = $data['tautan_dokumen'] ?? null;
 
-            // ⬇️ Bagian sensitif: pastikan file valid & path tidak kosong
+            // Upload file jika ada (hanya pdf/jpg/jpeg/png)
             if ($req->hasFile('file')) {
                 $uploaded = $req->file('file');
-                if ($uploaded && $uploaded->isValid()) {
-                    // nama file = nomor_surat (disanitasi) + ekstensi
-                    $safeName = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '-', $nomor);
-                    $ext = $uploaded->getClientOriginalExtension();
-                    $finalName = $safeName . ($ext ? ".{$ext}" : '');
-
-                    // pastikan folder tujuan tidak kosong
-                    $dir = 'letters';
-                    $filePath = $uploaded->storeAs($dir, $finalName, 'public'); // => letters/xxx.ext
-                    $link = null; // jika ada file, abaikan tautan
-                } else {
-                    // jika form kirim field file tapi tidak valid
+                if (!$uploaded || !$uploaded->isValid()) {
                     abort(422, 'File upload tidak valid.');
                 }
+
+                // nama file = nomor_surat (aman) + ekstensi asli
+                $safeName  = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '-', $nomor);
+                $ext       = strtolower($uploaded->getClientOriginalExtension());
+                $finalName = $safeName . ($ext ? ".{$ext}" : '');
+                $dir       = 'letters';
+
+                $filePath = $uploaded->storeAs($dir, $finalName, 'public'); // letters/xxx.ext
+                $link     = null; // jika file ada, abaikan tautan
             }
 
             $id = DB::table('letters')->insertGetId([
-                'nomor_surat' => $nomor,
-                'sequence' => $seq,
-                'tujuan' => $data['tujuan'],
+                'nomor_surat'      => $nomor,
+                'sequence'         => $seq,
+                'tujuan'           => $data['tujuan'],
                 'kode_klasifikasi' => $data['kode_klasifikasi'],
-                'perihal' => $data['perihal'],
-                'tanggal_surat' => $tanggal->format('Y-m-d'),
-                'tautan_dokumen' => $link,
-                'file_path' => $filePath,
-                'user_id' => $user->id,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'perihal'          => $data['perihal'],
+                'tanggal_surat'    => $tanggal->format('Y-m-d'),
+                'tautan_dokumen'   => $link,
+                'file_path'        => $filePath,
+                'user_id'          => $user->id,
+                'created_at'       => now(),
+                'updated_at'       => now(),
             ]);
 
             return response()->json(DB::table('letters')->where('id', $id)->first(), 201);
         });
     }
 
-
     // PUT /api/surat/{id}  (admin only via middleware)
     public function update(Request $req, int $id)
     {
         $user = $req->user();
-        // (validasi role admin kamu sudah ada)
 
         $data = $req->validate([
-            'nomor_surat' => ['nullable', 'string', 'max:100', 'unique:letters,nomor_surat,' . $id],
-            'tujuan' => ['sometimes', 'required', 'string', 'max:255'],
+            'nomor_surat'      => ['nullable', 'string', 'max:100', 'unique:letters,nomor_surat,' . $id],
+            'tujuan'           => ['sometimes', 'required', 'string', 'max:255'],
             'kode_klasifikasi' => ['sometimes', 'required', 'string', 'max:50'],
-            'perihal' => ['sometimes', 'required', 'string', 'max:255'],
-            'tanggal_surat' => ['sometimes', 'required', 'date'],
-            'tautan_dokumen' => ['nullable', 'url'],
-            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx,txt,xls,xlsx', 'max:10240'],
+            'perihal'          => ['sometimes', 'required', 'string', 'max:255'],
+            'tanggal_surat'    => ['sometimes', 'required', 'date'],
+            'tautan_dokumen'   => ['nullable', 'url'],
+            // ⬇️ khusus: hanya PDF/JPG/JPEG/PNG (≤10MB)
+            'file'             => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
 
         return DB::transaction(function () use ($id, $data, $req) {
@@ -154,31 +148,29 @@ class LetterController extends Controller
             $kodeBaru = $data['kode_klasifikasi'] ?? $row->kode_klasifikasi;
 
             $nomor = $row->nomor_surat;
-            $seq = (int) $row->sequence;
+            $seq   = (int) $row->sequence;
 
-            // Jika user isi nomor_surat manual → pakai itu (dengan validasi sequence)
+            // Nomor manual?
             if (!empty($data['nomor_surat'])) {
                 $seqManual = NumberingService::sequenceFromManual($data['nomor_surat']);
                 if (!$seqManual || $seqManual < 1) {
                     abort(422, 'Format nomor_surat tidak valid.');
                 }
-                // Pastikan tidak tabrakan di bulan target
-                $year = (int) $tanggalBaru->format('Y');
-                $month = (int) $tanggalBaru->format('n');
 
+                $year  = (int) $tanggalBaru->format('Y');
+                $month = (int) $tanggalBaru->format('n');
                 $exists = DB::table('letters')
                     ->where('id', '<>', $id)
                     ->whereYear('tanggal_surat', $year)
                     ->whereMonth('tanggal_surat', $month)
                     ->where('sequence', $seqManual)
                     ->exists();
-                if ($exists)
-                    abort(422, "Sequence {$seqManual} sudah terpakai bulan tsb.");
+                if ($exists) abort(422, "Sequence {$seqManual} sudah terpakai bulan tsb.");
 
                 $nomor = $data['nomor_surat'];
-                $seq = $seqManual;
+                $seq   = $seqManual;
             } else {
-                // User tidak isi nomor; jika bulan/tahun berubah → re-generate gapless
+                // Jika bulan/tahun berubah → re-generate gapless
                 $oldY = (int) date('Y', strtotime($row->tanggal_surat));
                 $oldM = (int) date('n', strtotime($row->tanggal_surat));
                 $newY = (int) $tanggalBaru->format('Y');
@@ -187,34 +179,42 @@ class LetterController extends Controller
                 if ($oldY !== $newY || $oldM !== $newM) {
                     $g = app(NumberingService::class)->generate($kodeBaru, $tanggalBaru);
                     $nomor = $g['nomor'];
-                    $seq = $g['sequence'];
-                } else {
-                    // bulan sama: biarkan nomor & sequence lama (gapless tetap terjaga)
+                    $seq   = $g['sequence'];
                 }
             }
 
             // Dokumen
             $filePath = $row->file_path;
-            $link = $data['tautan_dokumen'] ?? $row->tautan_dokumen;
+            $link     = $data['tautan_dokumen'] ?? $row->tautan_dokumen;
 
             if ($req->hasFile('file')) {
+                $uploaded = $req->file('file');
+                if (!$uploaded || !$uploaded->isValid()) {
+                    abort(422, 'File upload tidak valid.');
+                }
+
                 // hapus file lama jika ada
-                if ($filePath)
-                    \Storage::disk('public')->delete($filePath);
-                $filePath = $req->file('file')->store('letters', 'public');
-                $link = null; // pakai file, tautan diabaikan
+                if ($filePath) Storage::disk('public')->delete($filePath);
+
+                $safeName  = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '-', $nomor);
+                $ext       = strtolower($uploaded->getClientOriginalExtension());
+                $finalName = $safeName . ($ext ? ".{$ext}" : '');
+                $dir       = 'letters';
+
+                $filePath = $uploaded->storeAs($dir, $finalName, 'public');
+                $link     = null; // jika file baru diunggah, abaikan tautan
             }
 
             DB::table('letters')->where('id', $id)->update([
-                'nomor_surat' => $nomor,
-                'sequence' => $seq,
-                'tujuan' => $data['tujuan'] ?? $row->tujuan,
+                'nomor_surat'      => $nomor,
+                'sequence'         => $seq,
+                'tujuan'           => $data['tujuan']           ?? $row->tujuan,
                 'kode_klasifikasi' => $kodeBaru,
-                'perihal' => $data['perihal'] ?? $row->perihal,
-                'tanggal_surat' => $tanggalBaru->format('Y-m-d'),
-                'tautan_dokumen' => $link,
-                'file_path' => $filePath,
-                'updated_at' => now(),
+                'perihal'          => $data['perihal']          ?? $row->perihal,
+                'tanggal_surat'    => $tanggalBaru->format('Y-m-d'),
+                'tautan_dokumen'   => $link,
+                'file_path'        => $filePath,
+                'updated_at'       => now(),
             ]);
 
             return response()->json(DB::table('letters')->find($id));
@@ -225,8 +225,7 @@ class LetterController extends Controller
     public function destroy(int $id)
     {
         $letter = Letter::findOrFail($id);
-        if ($letter->file_path)
-            Storage::disk('public')->delete($letter->file_path);
+        if ($letter->file_path) Storage::disk('public')->delete($letter->file_path);
         $letter->delete();
         return response()->json(['message' => 'Deleted']);
     }
@@ -237,26 +236,19 @@ class LetterController extends Controller
         return $r[$m] ?? "";
     }
 
-    /**
-     * Hitung nomor & sequence berikutnya untuk (tahun, bulan) dari tanggal yang diminta.
-     * Tidak menyimpan apa pun — hanya preview.
-     *
-     * GET /api/surat/next-number?kode_klasifikasi=UMUM&tanggal_surat=2025-11-08
-     * Response: { nomor_surat: "001/UMUM/XI/2025", sequence: 1 }
-     */
+    // GET /api/surat/next-number
     public function nextNumber(Request $request)
     {
         $request->validate([
             'kode_klasifikasi' => 'required|string|max:20',
-            'tanggal_surat' => 'required|date',
+            'tanggal_surat'    => 'required|date',
         ]);
 
-        $kode = strtoupper($request->kode_klasifikasi);
-        $date = Carbon::parse($request->tanggal_surat);
-        $year = (int) $date->format('Y');
+        $kode  = strtoupper($request->kode_klasifikasi);
+        $date  = Carbon::parse($request->tanggal_surat);
+        $year  = (int) $date->format('Y');
         $month = (int) $date->format('n');
 
-        // Cari sequence terkecil yang belum terpakai pada bulan & tahun tsb (gapless)
         $used = DB::table('letters')
             ->whereYear('tanggal_surat', $year)
             ->whereMonth('tanggal_surat', $month)
@@ -264,42 +256,27 @@ class LetterController extends Controller
             ->all();
 
         $usedSet = array_fill_keys($used, true);
-        $seq = 1;
-        while (isset($usedSet[$seq])) {
-            $seq++;
-        }
+        $seq = 1; while (isset($usedSet[$seq])) { $seq++; }
 
         $padded = str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
-        $roman = self::monthToRoman($month);
-        $nomor = "{$padded}/{$kode}/{$roman}/{$year}";
+        $roman  = self::monthToRoman($month);
+        $nomor  = "{$padded}/{$kode}/{$roman}/{$year}";
 
         return response()->json([
             'nomor_surat' => $nomor,
-            'sequence' => $seq,
+            'sequence'    => $seq,
         ]);
     }
 
     public function download($id, Request $request): StreamedResponse
     {
-        $user = $request->user();
         $letter = Letter::with('user')->findOrFail($id);
+        if (!$letter->file_path) abort(404, 'Surat ini tidak memiliki file.');
 
-        // // Hanya pemilik atau admin
-        // if ($user->role !== 'admin' && $letter->user_id !== $user->id) {
-        //     abort(403, 'Tidak diizinkan');
-        // }
-
-        if (!$letter->file_path) {
-            abort(404, 'Surat ini tidak memiliki file.');
-        }
-
-        // Buat nama file dari nomor surat (aman untuk filesystem) + ekstensi asli
         $safeName = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '-', $letter->nomor_surat);
-        $ext = pathinfo($letter->file_path, PATHINFO_EXTENSION);
+        $ext      = pathinfo($letter->file_path, PATHINFO_EXTENSION);
         $filename = $safeName . ($ext ? ".{$ext}" : '');
 
-        // Asumsi file disimpan di disk 'public'
         return Storage::disk('public')->download($letter->file_path, $filename);
     }
 }
-

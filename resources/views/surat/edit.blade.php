@@ -7,7 +7,6 @@
     </div>
 
     <form id="formEdit" class="grid grid-cols-1 md:grid-cols-2 gap-4" enctype="multipart/form-data">
-      <!-- Nomor Surat (boleh diedit atau dibiarkan kosong untuk auto-re-generate saat ganti tanggal) -->
       <div class="md:col-span-2">
         <label class="block text-sm font-medium mb-1">Nomor Surat Lengkap</label>
         <input id="nomor_surat" class="input-style" placeholder="Contoh: 001/KEU/XI/2025 (opsional)">
@@ -59,8 +58,8 @@
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Upload File Dokumen (opsional)</label>
-          <input type="file" id="file" class="input-style" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx">
-          <p class="text-xs text-gray-500 mt-1">Maks 10 MB. Format: PDF/DOC/DOCX/TXT/XLS/XLSX.</p>
+          <input type="file" id="file" class="input-style" accept=".pdf,.jpg,.jpeg,.png">
+          <p class="text-xs text-gray-500 mt-1">Maks 10 MB. Format yang diizinkan: PDF, JPG, JPEG, PNG.</p>
         </div>
       </div>
 
@@ -88,13 +87,9 @@
     const fileInput        = document.getElementById('file');
     const dokNow           = document.getElementById('dokumen-sekarang');
 
-    // Ambil id dari URL: /surat/{id}/edit
     const m = location.pathname.match(/\/surat\/(\d+)\/edit$/);
     const suratId = m ? m[1] : null;
-    if (!suratId) {
-      alert('URL tidak valid');
-      location.href = '{{ route('surat.index') }}';
-    }
+    if (!suratId) { alert('URL tidak valid'); location.href = '{{ route('surat.index') }}'; }
 
     function formatDokumen(r) {
       if (r?.tautan_dokumen) {
@@ -122,26 +117,38 @@
       }
     }
 
+    // Client-side guard: hanya pdf/jpg/jpeg/png
+    function isAllowedFile(file){
+      if(!file) return true;
+      const okExt = ['pdf','jpg','jpeg','png'];
+      const ext = (file.name.split('.').pop()||'').toLowerCase();
+      return okExt.includes(ext);
+    }
+
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
       msg.textContent = '';
 
-      // Jika upload file -> gunakan POST + _method=PUT agar PHP mem-parsing $_FILES
       const hasFile = fileInput.files && fileInput.files.length > 0;
+      if (hasFile && !isAllowedFile(fileInput.files[0])) {
+        msg.textContent = 'Format file tidak diizinkan. Hanya PDF, JPG, JPEG, PNG.';
+        msg.className   = 'text-red-600 text-sm';
+        return;
+      }
+
       if (hasFile) {
         const fd = new FormData();
-        fd.append('_method', 'PUT');                    // <— penting (method override)
+        fd.append('_method', 'PUT');
         if (nomor_surat.value.trim()) fd.append('nomor_surat', nomor_surat.value.trim());
         fd.append('tujuan', tujuan.value.trim());
         fd.append('perihal', perihal.value.trim());
         fd.append('kode_klasifikasi', kode_klasifikasi.value);
         fd.append('tanggal_surat', tanggal_surat.value);
         fd.append('file', fileInput.files[0]);
-        // kirim tautan kosong agar backend mudah meng-null-kan
-        fd.append('tautan_dokumen', '');               // opsional, backend bisa abaikan jika file ada
+        fd.append('tautan_dokumen', ''); // kosongkan link saat ada file
 
         try {
-          await apiFetch('/api/surat/' + suratId, { method: 'POST', body: fd }); // <-- POST, bukan PUT
+          await apiFetch('/api/surat/' + suratId, { method: 'POST', body: fd }); // gunakan override _method
           msg.textContent = 'Berhasil diupdate';
           msg.className   = 'text-green-700 text-sm';
           setTimeout(() => location.href='{{ route('surat.index') }}', 800);
@@ -152,7 +159,7 @@
         return;
       }
 
-      // Tanpa file -> kirim JSON via PUT biasa
+      // Tanpa file -> JSON PUT
       const payload = {
         tujuan: tujuan.value.trim(),
         perihal: perihal.value.trim(),
@@ -163,10 +170,7 @@
       if (nomor_surat.value.trim()) payload.nomor_surat = nomor_surat.value.trim();
 
       try {
-        await apiFetch('/api/surat/' + suratId, {
-          method: 'PUT',
-          body: JSON.stringify(payload)
-        });
+        await apiFetch('/api/surat/' + suratId, { method: 'PUT', body: JSON.stringify(payload) });
         msg.textContent = 'Berhasil diupdate';
         msg.className   = 'text-green-700 text-sm';
         setTimeout(() => location.href='{{ route('surat.index') }}', 800);

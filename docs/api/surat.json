@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Dokumentasi API - Surat",
-    "version": "1.0.0",
-    "description": "Dokumentasi endpoint pengelolaan Surat. Autentikasi menggunakan Bearer Token (Laravel Sanctum)."
+    "version": "1.0.1",
+    "description": "Dokumentasi endpoint pengelolaan Surat. Autentikasi menggunakan Bearer Token (Laravel Sanctum).\n\nCatatan upload: hanya file **PDF, JPG, JPEG, PNG** dengan ukuran maksimal **10 MB** yang diizinkan."
   },
   "servers": [
     { "url": "/api", "description": "Base path API (laravel route prefix)" }
@@ -57,12 +57,17 @@
         "security": [{ "bearerAuth": [] }],
         "tags": ["Surat"],
         "summary": "Tambah surat",
-        "description": "Jika `nomor_surat` tidak diisi, server akan **generate gapless** berdasarkan `kode_klasifikasi` dan `tanggal_surat`. Jika mengunggah file, field `tautan_dokumen` akan diabaikan.",
+        "description": "Jika `nomor_surat` tidak diisi, server akan **generate gapless** berdasarkan `kode_klasifikasi` dan `tanggal_surat`. Jika mengunggah file, field `tautan_dokumen` akan diabaikan. **Hanya file PDF/JPG/JPEG/PNG (≤10 MB) yang diizinkan.**",
         "requestBody": {
           "required": true,
           "content": {
             "multipart/form-data": {
-              "schema": { "$ref": "#/components/schemas/StoreLetterMultipart" }
+              "schema": { "$ref": "#/components/schemas/StoreLetterMultipart" },
+              "encoding": {
+                "file": {
+                  "contentType": "application/pdf, image/jpeg, image/png"
+                }
+              }
             },
             "application/json": {
               "schema": { "$ref": "#/components/schemas/StoreLetterJson" }
@@ -72,6 +77,7 @@
         "responses": {
           "201": { "description": "Dibuat", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Letter" } } } },
           "401": { "description": "Tidak terautentikasi" },
+          "415": { "description": "Tipe file tidak didukung (hanya PDF/JPG/JPEG/PNG)" },
           "422": { "description": "Validasi gagal / nomor_surat duplikat" }
         }
       }
@@ -94,15 +100,24 @@
         "security": [{ "bearerAuth": [] }],
         "tags": ["Surat"],
         "summary": "Update surat (admin)",
-        "description": "Hanya admin. Jika `nomor_surat` kosong dan bulan/tahun berubah, server akan **re-generate** nomor gapless untuk bulan baru.",
+        "description": "Hanya admin. Jika `nomor_surat` kosong dan bulan/tahun berubah, server akan **re-generate** nomor gapless untuk bulan baru. **Hanya file PDF/JPG/JPEG/PNG (≤10 MB) yang diizinkan saat unggah.**\n\nCatatan: Klien web dapat menggunakan `POST` + field `_method=PUT` untuk upload file (method override). API tetap menerima `PUT` multipart langsung.",
         "parameters": [
           { "$ref": "#/components/parameters/IdParam" }
         ],
         "requestBody": {
           "required": true,
           "content": {
-            "multipart/form-data": { "schema": { "$ref": "#/components/schemas/UpdateLetterMultipart" } },
-            "application/json": { "schema": { "$ref": "#/components/schemas/UpdateLetterJson" } }
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/UpdateLetterMultipart" },
+              "encoding": {
+                "file": {
+                  "contentType": "application/pdf, image/jpeg, image/png"
+                }
+              }
+            },
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateLetterJson" }
+            }
           }
         },
         "responses": {
@@ -110,6 +125,7 @@
           "401": { "description": "Tidak terautentikasi" },
           "403": { "description": "Tidak diizinkan (bukan admin)" },
           "404": { "description": "Tidak ditemukan" },
+          "415": { "description": "Tipe file tidak didukung (hanya PDF/JPG/JPEG/PNG)" },
           "422": { "description": "Validasi gagal / sequence tabrakan" }
         }
       },
@@ -142,7 +158,9 @@
             "description": "File biner",
             "content": {
               "application/octet-stream": { "schema": { "type": "string", "format": "binary" } },
-              "application/pdf": { "schema": { "type": "string", "format": "binary" } }
+              "application/pdf": { "schema": { "type": "string", "format": "binary" } },
+              "image/jpeg": { "schema": { "type": "string", "format": "binary" } },
+              "image/png": { "schema": { "type": "string", "format": "binary" } }
             }
           },
           "401": { "description": "Tidak terautentikasi" },
@@ -174,7 +192,7 @@
       "Letter": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer" },
+          "id": { "type": "integer", "format": "int64" },
           "nomor_surat": { "type": "string", "example": "001/UMUM/XI/2025" },
           "sequence": { "type": "integer", "description": "Nomor urut (gapless per bulan)" },
           "tujuan": { "type": "string" },
@@ -183,14 +201,14 @@
           "tanggal_surat": { "type": "string", "format": "date" },
           "tautan_dokumen": { "type": "string", "format": "uri", "nullable": true },
           "file_path": { "type": "string", "nullable": true, "description": "Path penyimpanan di storage (public)" },
-          "user_id": { "type": "integer" },
+          "user_id": { "type": "integer", "format": "int64" },
           "created_at": { "type": "string", "format": "date-time", "nullable": true },
           "updated_at": { "type": "string", "format": "date-time", "nullable": true },
           "user": {
             "type": "object",
             "nullable": true,
             "properties": {
-              "id": { "type": "integer" },
+              "id": { "type": "integer", "format": "int64" },
               "name": { "type": "string" }
             }
           }
@@ -208,7 +226,7 @@
           "file": {
             "type": "string",
             "format": "binary",
-            "description": "Jika dikirim, `tautan_dokumen` diabaikan. Maks 10MB. pdf/doc/docx/txt/xls/xlsx"
+            "description": "Jika dikirim, `tautan_dokumen` diabaikan. Maks 10MB. **Hanya**: application/pdf, image/jpeg (jpg/jpeg), image/png."
           }
         },
         "required": ["tujuan", "kode_klasifikasi", "perihal", "tanggal_surat"]
@@ -237,7 +255,7 @@
           "file": {
             "type": "string",
             "format": "binary",
-            "description": "Mengunggah file baru akan **menimpa** file lama (jika ada) dan mengosongkan tautan."
+            "description": "Mengunggah file baru akan **menimpa** file lama (jika ada) dan mengosongkan tautan. Maks 10MB. **Hanya**: application/pdf, image/jpeg (jpg/jpeg), image/png."
           }
         }
       },
