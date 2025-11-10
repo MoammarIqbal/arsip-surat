@@ -1,11 +1,10 @@
 # 📄 Sistem Arsip Surat Gramindo
 
 **Sistem Arsip Surat Gramindo** adalah aplikasi berbasis web untuk mengelola surat masuk dan keluar secara digital.  
-Dibangun menggunakan **Laravel 11**, dengan autentikasi API berbasis **Sanctum Token**, sistem ini memungkinkan **pengguna** dan **admin** untuk mencatat, mengarsipkan, mengunduh, serta memantau surat secara efisien dan terstruktur.
+Dibangun menggunakan **Laravel 12**, dengan autentikasi API berbasis **Sanctum Token**, sistem ini memungkinkan **pengguna** dan **admin** untuk mencatat, mengarsipkan, mengunduh, serta memantau surat secara efisien dan terstruktur.
 
-> 🚀 Dikembangkan oleh **Moammar Iqbal**  
-> STMIK IKMI Cirebon · 2025  
-> Proyek ini merupakan bagian dari inovasi digitalisasi arsip dan tata naskah internal Gramindo.
+> 🚀 Dikembangkan oleh **Moammar Iqbal**   
+> Proyek ini merupakan aplikasi berbasis web arsip surat PT. GRAMINDO.
 
 ---
 
