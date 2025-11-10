@@ -1,59 +1,207 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 📄 Sistem Arsip Surat Gramindo
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Sistem Arsip Surat Gramindo** adalah aplikasi berbasis web untuk mengelola surat masuk dan keluar secara digital.  
+Dibangun menggunakan **Laravel 11**, dengan autentikasi API berbasis **Sanctum Token**, sistem ini memungkinkan **pengguna** dan **admin** untuk mencatat, mengarsipkan, mengunduh, serta memantau surat secara efisien dan terstruktur.
 
-## About Laravel
+> 🚀 Dikembangkan oleh **Moammar Iqbal**  
+> STMIK IKMI Cirebon · 2025  
+> Proyek ini merupakan bagian dari inovasi digitalisasi arsip dan tata naskah internal Gramindo.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🧩 Teknologi yang Digunakan
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Komponen | Teknologi |
+|-----------|------------|
+| **Framework** | Laravel 11 (PHP 8.3) |
+| **Frontend View** | Blade + TailwindCSS |
+| **Database** | MySQL / MariaDB |
+| **Autentikasi API** | Laravel Sanctum |
+| **Dokumentasi API** | OpenAPI 3.0 (`user.json` & `surat.json`) |
+| **Penyimpanan File** | Storage Laravel (public disk) |
+| **Server Requirement** | PHP ≥ 8.2, Composer, MySQL 5.7+, Node.js ≥ 18 |
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## 📌 Fitur Utama
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 👤 Autentikasi & Manajemen User
+- Login menggunakan email & password.
+- Autentikasi API menggunakan **Bearer Token (Sanctum)**.
+- Role-based access:
+  - **Admin**: dapat mengelola user dan surat.
+  - **User**: hanya dapat menambah & melihat surat miliknya.
+- Logout otomatis dengan penghapusan token aktif.
 
-## Laravel Sponsors
+### 📬 Manajemen Surat
+- Input surat dengan dua mode:
+  - **Upload File** (`PDF/DOCX/TXT/XLS/XLSX`) – disimpan di `storage/app/public/letters`
+  - **Tautan Dokumen** (URL file online)
+- Nomor surat **otomatis di-generate** berdasarkan:
+  - Kode klasifikasi (contoh: `UMUM`, `KEU`, `DIR`, dll)
+  - Tanggal surat (dalam format romawi bulan, contoh: `001/UMUM/XI/2025`)
+- Validasi otomatis agar nomor urut tidak lompat (gapless sequence per bulan).
+- Preview nomor surat berikutnya sebelum disimpan.
+- Fitur **edit** dan **hapus** (khusus admin).
+- Fitur **unduh file surat** sesuai nomor arsip.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 📑 API & Dokumentasi
+- API terbuka untuk integrasi internal.
+- Dokumentasi lengkap dalam format OpenAPI (Swagger):
 
-### Premium Partners
+| File | Keterangan |
+|------|-------------|
+| `docs/api/user.json` | Endpoint login, profil, logout, dan manajemen user |
+| `docs/api/surat.json` | Endpoint manajemen surat dan preview nomor otomatis |
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+---
 
-## Contributing
+## ⚙️ Instalasi & Konfigurasi
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 1️⃣ Clone Repository
+```bash
+git clone https://github.com/MoammarIqbal/arsip-surat
+cd arsip-surat
+```
 
-## Code of Conduct
+### 2️⃣ Install Dependensi
+```bash
+composer install
+npm install && npm run build
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 3️⃣ Konfigurasi `.env`
+Salin file contoh:
+```bash
+cp .env.example .env
+```
 
-## Security Vulnerabilities
+Edit nilai berikut sesuai environment:
+```env
+APP_NAME="Sistem Arsip Surat Gramindo"
+APP_URL=http://sistem-arsip-gramindo.test
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=arsip-surat
+DB_USERNAME=root
+DB_PASSWORD=
 
-## License
+FILESYSTEM_DISK=public
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 4️⃣ Generate Key & Migrasi Database
+```bash
+php artisan key:generate
+php artisan migrate
+php artisan db:seed
+php artisan storage:link
+```
+
+### 5️⃣ Jalankan Server
+```bash
+php artisan serve
+```
+Akses di: [http://localhost:8000](http://localhost:8000)
+
+---
+
+## 🔐 Autentikasi API (Sanctum)
+
+Setelah login (`POST /api/login`), sistem akan mengembalikan token:
+
+```json
+{
+  "message": "Berhasil Login",
+  "token": "1|masked_sanctum_token_here",
+  "user": {
+    "id": 1,
+    "name": "Admin",
+    "email": "admin@example.com",
+    "role": "admin"
+  }
+}
+```
+
+Gunakan token ini untuk seluruh request API:
+```
+Authorization: Bearer <token>
+```
+
+---
+
+## 📡 Endpoint API
+
+| Metode | Endpoint | Deskripsi | Akses |
+|---------|-----------|-----------|--------|
+| POST | `/api/login` | Login pengguna | Public |
+| GET | `/api/profile` | Profil user aktif | Semua user |
+| POST | `/api/logout` | Logout dan hapus token | Semua user |
+| GET | `/api/surat` | Daftar surat (paginate) | Semua user |
+| GET | `/api/surat/{id}` | Detail surat | Semua user |
+| POST | `/api/surat` | Tambah surat baru | Semua user |
+| GET | `/api/surat/next-number` | Preview nomor otomatis | Semua user |
+| GET | `/api/surat/{id}/download` | Unduh file surat | Semua user |
+| PUT | `/api/surat/{id}` | Update surat | Admin |
+| DELETE | `/api/surat/{id}` | Hapus surat | Admin |
+| GET | `/api/users` | Daftar user | Admin |
+| POST | `/api/users` | Tambah user baru | Admin |
+| PUT | `/api/users/{id}` | Update user | Admin |
+| DELETE | `/api/users/{id}` | Hapus user | Admin |
+
+---
+
+## 🧾 Dokumentasi OpenAPI
+
+Tersedia dua file JSON yang bisa langsung di-preview di **Swagger UI** atau **VSCode Swagger Viewer**:
+
+- [docs/api/user.json](public/openapi/user.json)
+- [docs/api/surat.json](public/openapi/surat.json)
+
+Preview lokal:
+```bash
+# Jalankan server Swagger UI sederhana
+npx serve public/openapi
+```
+Lalu buka [http://localhost:3000/user.json](http://localhost:3000/user.json)
+
+---
+
+## 🧱 Arsitektur Sistem
+
+```mermaid
+flowchart TD
+    A[User Interface (Blade)] -->|Request| B[API Routes]
+    B --> C[AuthController / LetterController / UserManagementController]
+    C --> D[(Database MySQL)]
+    C --> E[(Storage Public)]
+    E --> F[File Surat (PDF, DOCX, XLS)]
+    D --> G[Table: users, letters, personal_access_tokens]
+```
+
+---
+
+## 🚧 Rencana Pengembangan
+
+✅ Versi 1.0 — Fitur inti (login, surat, user, upload, download)  
+
+---
+
+## 🧑‍💻 Kontributor
+
+| Nama | Peran |
+|------|--------|
+| **Moammar Iqbal** | Developer, API Design |
+
+---
+
+## 🌐 Kontak
+
+**Moammar Iqbal**  
+📧 Email: ikbal30042005@gmail.com  
+💼 LinkedIn: [linkedin.com/in/moammar-iqbal](https://www.linkedin.com/in/moammar-iqbal-388969376?utm_source=share_via&utm_content=profile&utm_medium=member_android)
+
+---
+
+> _"Digitalisasi bukan hanya soal kecepatan, tapi juga memastikan setiap dokumen memiliki jejak dan nilai arsip yang utuh."_ ✨
