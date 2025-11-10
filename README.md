@@ -12,9 +12,9 @@ Dibangun menggunakan **Laravel 12**, dengan autentikasi API berbasis **Sanctum T
 
 | Komponen | Teknologi |
 |-----------|------------|
-| **Framework** | Laravel 11 (PHP 8.3) |
+| **Framework** | Laravel 12 (PHP 8.3) |
 | **Frontend View** | Blade + TailwindCSS |
-| **Database** | MySQL / MariaDB |
+| **Database** | MySQL |
 | **Autentikasi API** | Laravel Sanctum |
 | **Dokumentasi API** | OpenAPI 3.0 (`user.json` & `surat.json`) |
 | **Penyimpanan File** | Storage Laravel (public disk) |
