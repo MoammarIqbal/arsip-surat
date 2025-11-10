@@ -171,12 +171,12 @@ Lalu buka [http://localhost:3000/user.json](http://localhost:3000/user.json)
 
 ```mermaid
 flowchart TD
-    A[User Interface (Blade)] -->|Request| B[API Routes]
+    A[User Interface (Blade)] --> B[API Routes]
     B --> C[AuthController / LetterController / UserManagementController]
     C --> D[(Database MySQL)]
     C --> E[(Storage Public)]
     E --> F[File Surat (PDF, DOCX, XLS)]
-    D --> G[Table: users, letters, personal_access_tokens]
+    D --> G[[Table: users, letters, personal_access_tokens]]
 ```
 
 ---
