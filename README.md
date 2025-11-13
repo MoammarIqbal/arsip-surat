@@ -155,8 +155,8 @@ Authorization: Bearer <token>
 
 Tersedia dua file JSON yang bisa langsung di-preview di **Swagger UI** atau **VSCode Swagger Viewer**:
 
-- [docs/api/user.json](public/openapi/user.json)
-- [docs/api/surat.json](public/openapi/surat.json)
+- [docs/api/user.json](docs/api/user.json)
+- [docs/api/surat.json](docs/api/surat.json)
 
 Preview lokal:
 ```bash
