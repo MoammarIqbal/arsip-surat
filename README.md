@@ -34,7 +34,7 @@ Dibangun menggunakan **Laravel 12**, dengan autentikasi API berbasis **Sanctum T
 
 ### 📬 Manajemen Surat
 - Input surat dengan dua mode:
-  - **Upload File** (`PDF/DOCX/TXT/XLS/XLSX`) – disimpan di `storage/app/public/letters`
+  - **Upload File** (`PDF/JPG/JPEG/PNG`) – disimpan di `storage/app/public/letters`
   - **Tautan Dokumen** (URL file online)
 - Nomor surat **otomatis di-generate** berdasarkan:
   - Kode klasifikasi (contoh: `UMUM`, `KEU`, `DIR`, dll)
@@ -175,7 +175,7 @@ flowchart TD
     B --> C[AuthController / LetterController / UserManagementController]
     C --> D[(Database MySQL)]
     C --> E[(Storage Public)]
-    E --> F[File Surat (PDF, DOCX, XLS)]
+    E --> F[File Surat (PDF, JPG, JPEG, PNG)]
     D --> G[[Table: users, letters, personal_access_tokens]]
 ```
 
